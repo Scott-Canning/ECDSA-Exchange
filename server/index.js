@@ -6,15 +6,18 @@ const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
 const SHA256 = require('crypto-js/sha256');
 const e = require('express');
-
+const Chain = require('./Blockchain.js');
+const Block = require('./Block.js');
 
 // localhost can have cross origin errors
 // depending on the browser you use!
 app.use(cors());
 app.use(express.json());
 
-function verifySignature(message, privateKey){
+const bc = new Chain();
+bc.genesisBlock();
 
+function verifySignature(message, privateKey){
   const msgHash = SHA256(message).toString();
   const sendersPrivateKey = ec.keyFromPrivate(privateKey);
   const signature = sendersPrivateKey.sign(msgHash);
@@ -57,21 +60,46 @@ for(let i = 0; i < 3; i++) {
   addresses[publicKey] = addressData;
 }
 
+
+app.post('/newWallet', (req, res) => {
+  const { tx } = req.body;
+  let success = false;
+  let blockHeight = bc.height;
+  console.log("bc.chain[bc.height].hasSpace(): ", bc.chain[bc.height].hasSpace());
+  if(bc.chain[bc.height].hasSpace()){
+    success = bc.chain[bc.height].addTransaction(tx).toString();
+    blockHeight = bc.height.toString();
+  } 
+  else {
+    const newBlock = new Block();
+    bc.addBlock(newBlock);
+    success = bc.chain[bc.height].addTransaction(tx).toString();
+    blockHeight = bc.height.toString();
+  }
+  res.json({
+    "success": success,
+    "blockHeight": blockHeight
+  });
+});
+
+
 app.post('/balance', (req, res) => {
-  const {address, privKey} = req.body;
-  const privateKey = addresses[address].privateKey;
+  const { address, verified } = req.body;
   let balance = 0;
 
-  // return balance only if users supplies correct private key
-  if(privateKey === privKey){
+  // return balance only if user private key is verified
+  if(verified){
     console.log("wallet connected")
-    balance = addresses[address].balance;
+    balance = bc.getBalance(address);
+    console.log("balance: ", balance);
     res.send({ balance: balance });
-  } else {
+  } 
+  else {
     balance = 0;
-    res.send({ balance: balance});
+    res.send({ balance: balance });
   }
 });
+
 
 app.post('/send', (req, res) => {
   const {sender, sendersPk, recipient, amount} = req.body;
@@ -108,4 +136,5 @@ app.listen(port, () => {
   console.log(`Listening on port ${port}!`);
   // output key pairs to use on front-end
   console.log(addresses);
+
 });

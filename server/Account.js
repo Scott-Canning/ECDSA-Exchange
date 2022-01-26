@@ -1,5 +1,5 @@
 
-class Address {
+class Account {
     constructor(address, balance) {
         this.address = address;
         this.balance = balance;
@@ -16,4 +16,4 @@ class Address {
     }
 }
 
-module.exports = Address;
+module.exports = Account;

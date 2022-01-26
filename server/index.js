@@ -4,10 +4,9 @@ const cors = require('cors');
 const port = 3042;
 const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
-const SHA256 = require('crypto-js/sha256');
 const e = require('express');
 const Chain = require('./Blockchain.js');
-const Block = require('./Block.js');
+const Transaction = require('./Transaction.js');
 
 // localhost can have cross origin errors
 // depending on the browser you use!
@@ -17,65 +16,13 @@ app.use(express.json());
 const bc = new Chain();
 bc.genesisBlock();
 
-function verifySignature(message, privateKey){
-  const msgHash = SHA256(message).toString();
-  const sendersPrivateKey = ec.keyFromPrivate(privateKey);
-  const signature = sendersPrivateKey.sign(msgHash);
-  const senderSignature = {
-    r: signature.r.toString(16),
-    s: signature.s.toString(16)
-}
-
-  const pubPoint = sendersPrivateKey.getPublic();
-  const x = pubPoint.getX().toString('hex');
-  const y = pubPoint.getY().toString('hex');
-  const sendersPublicKey = {
-    x: x,
-    y: y
-  };
-
-  const key = ec.keyFromPublic(sendersPublicKey, 'hex');
-  return key.verify(SHA256(message).toString(), senderSignature);
-}
-
-// seed accounts with random balances
-function getRandomInt(min, max) {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min) + min);
-}
-
-// create dict with demo keys
-const addresses = {};
-for(let i = 0; i < 3; i++) {
-  let key = ec.genKeyPair();
-  let publicKey = '0x' + key.getPublic().encode('hex').slice(0,40);
-  let randBalance = getRandomInt(100, 500);
-  let addressData = {
-    privateKey: key.getPrivate().toString(16),
-    publicX: key.getPublic().x.toString(16),
-    publicY: key.getPublic().y.toString(16),
-    balance: randBalance
-  }
-  addresses[publicKey] = addressData;
-}
-
-
 app.post('/newWallet', (req, res) => {
   const { tx } = req.body;
-  let success = false;
-  let blockHeight = bc.height;
-  console.log("bc.chain[bc.height].hasSpace(): ", bc.chain[bc.height].hasSpace());
-  if(bc.chain[bc.height].hasSpace()){
-    success = bc.chain[bc.height].addTransaction(tx).toString();
-    blockHeight = bc.height.toString();
-  } 
-  else {
-    const newBlock = new Block();
-    bc.addBlock(newBlock);
-    success = bc.chain[bc.height].addTransaction(tx).toString();
-    blockHeight = bc.height.toString();
-  }
+  const { sender, receiver, amount } = tx;
+  newTx = new Transaction(sender, receiver, amount);
+  const { success, /* balance */ } = bc.addTransaction(newTx);
+  const blockHeight = bc.height.toString();
+  
   res.json({
     "success": success,
     "blockHeight": blockHeight
@@ -85,56 +32,62 @@ app.post('/newWallet', (req, res) => {
 
 app.post('/balance', (req, res) => {
   const { address, verified } = req.body;
-  let balance = 0;
 
-  // return balance only if user private key is verified
-  if(verified){
-    console.log("wallet connected")
-    balance = bc.getBalance(address);
-    console.log("balance: ", balance);
-    res.send({ balance: balance });
+  // return balance only if user private key is verified on client
+  if(verified) {
+    console.log("Wallet Connected")
+    account = bc.getAccount(address);
+    console.log("account: ", account);
+    res.send({ account: account });
   } 
   else {
     balance = 0;
-    res.send({ balance: balance });
+    res.send({ account: undefined });
   }
 });
 
 
 app.post('/send', (req, res) => {
-  const {sender, sendersPk, recipient, amount} = req.body;
+  const { verified, senderAddress, receiverAddress, amount } = req.body;
 
-  const message = {
-    sender: sender,
-    recipient: recipient,
-    amount: amount
-  };
+  if(verified) {
+      console.log("Signature Verified");
+      sender = bc.getAccount(senderAddress);
+      receiver = bc.getAccount(receiverAddress);
+      tx = new Transaction(sender, receiver, amount);
+      const { success, balance } = bc.addTransaction(tx);
 
-  const privateKey = addresses[sender].privateKey;
-  if(privateKey === sendersPk){
-    if(verifySignature(message, sendersPk)){
-      console.log("signature verified")
-      if(addresses[sender].balance >= amount){
-        addresses[sender].balance -= amount;
-        addresses[recipient].balance = (addresses[recipient].balance || 0) + +amount;
-        res.send({ balance: addresses[sender].balance });
+      const blockHeight = bc.height;
+
+      console.log("success: ", success);
+      if (success){
+        res.json({
+          "success": success,
+          "balance": balance,
+          "blockHeight": blockHeight
+        });
+      } 
+      else if (!success) {
+        console.log("Signature NOT Verified")
+        res.json({
+          "success": success,
+          "balance": balance,
+          "blockHeight": blockHeight
+        });
       } else {
-        console.log("insufficient balance")
-        res.send({ balance: addresses[sender].balance })
+        console.log("Invalid Credentials")
+        res.json({
+          "success": success,
+          "balance": 0,
+          "blockHeight": blockHeight
+        });
       }
-    } else {
-      console.log("signature NOT verified")
-      res.send({ balance: 0 })
     }
-  } else {
-    console.log("incorrect credentials")
-    res.send({ balance: 0 })
-  };
 });
+
 
 app.listen(port, () => {
   console.log(`Listening on port ${port}!`);
   // output key pairs to use on front-end
   console.log(addresses);
-
 });

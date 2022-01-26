@@ -37,7 +37,6 @@ app.post('/balance', (req, res) => {
   if(verified) {
     console.log("Wallet Connected")
     account = bc.getAccount(address);
-    console.log("account: ", account);
     res.send({ account: account });
   } 
   else {
@@ -59,7 +58,6 @@ app.post('/send', (req, res) => {
 
       const blockHeight = bc.height;
 
-      console.log("success: ", success);
       if (success){
         res.json({
           "success": success,
@@ -89,5 +87,4 @@ app.post('/send', (req, res) => {
 app.listen(port, () => {
   console.log(`Listening on port ${port}!`);
   // output key pairs to use on front-end
-  console.log(addresses);
 });

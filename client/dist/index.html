@@ -2,10 +2,17 @@
   <head>
     <meta charset="utf-8">
     <title>ECDSA Exchange</title>
-    <script type="module" src="/client.e31bb0bc.js"></script>
-  <link rel="stylesheet" href="/client.e31bb0bc.css"></head>
+    <link rel="stylesheet" href="/index.a32d1e8b.css"><script src="/index.882e008e.js" defer=""></script>
+  </head>
   <body>
     <div class="components">
+      <div class="new-keys">
+        <h1> Create A New Wallet </h1>
+        <div class="button" id="generate-wallet">
+          Generate New Wallet
+        </div>
+        <h4> See Your Console </h4>
+      </div>
       <div class="wallet">
         <h1> Your Wallet </h1>
         <input type="text" id="exchange-address" placeholder="Your Address">
@@ -26,6 +33,15 @@
           Transfer Amount
         </div>
       </div>
+      <div class="blockchain">
+        <h4> Transaction Status: </h4>
+        <div id="success">
+          0
+        </div>
+        <h4> Blockchain Height: </h4>
+        <div id="blockheight">
+          0
+        </div>
     </div>
-  </body>
+  </div></body>
 </html>
